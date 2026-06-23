@@ -1,0 +1,1 @@
+as i show very high amount of bug related to full screen feature correct it neatly . what i see is when i navigating from one page to another page i show some time auto full screen appear , some time does not full screen at all. correct it  

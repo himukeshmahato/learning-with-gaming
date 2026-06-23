@@ -1,0 +1,25 @@
+{
+  "name": "QuizFall - AI Learning Game",
+  "short_name": "QuizFall",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1a13",
+  "theme_color": "#0b1a13",
+  "description": "Convert your PDF notes into an engaging falling-answer quiz game powered by AI.",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

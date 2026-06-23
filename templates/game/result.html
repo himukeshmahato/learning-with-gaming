@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<style>
+    .status-icon { font-size: 1.3rem; }
+    .status-correct { color: #10b981; }
+    .status-wrong { color: #ef4444; }
+    .status-pending { color: #fbbf24; }
+    .explanation-box {
+        margin-top: 1.2rem;
+        padding: 1rem;
+        background: rgba(16, 185, 129, 0.05);
+        border-left: 4px solid var(--primary-color);
+        border-radius: 4px;
+        font-size: 0.9rem;
+        line-height: 1.6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container fade-in">
+    <header style="margin-bottom: 2rem;">
+        <h2>Game <span style="color: var(--accent-color);">Over</span>!</h2>
+        <p style="color: var(--text-muted);">Let's see how you performed on <strong>{{ attempt.pdf.title }}</strong></p>
+    </header>
+
+    <div class="card" style="text-align: center; max-width: 800px; margin: 0 auto;">
+        <h1 style="font-size: clamp(3rem, 10vw, 5rem); color: var(--primary-color); margin: 0; line-height: 1;">{{ attempt.score }}</h1>
+        <p style="color: var(--text-muted); font-size: 1.2rem; margin-bottom: 2rem;">Final Score</p>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 2rem; margin: 2rem 0; border-top: 1px solid var(--border-color); padding-top: 2rem;">
+            <div>
+                <h3 style="color: #fbbf24; font-size: 2rem; margin: 0">{{ attempt.accuracy|floatformat:1 }}%</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Accuracy</p>
+            </div>
+            <div>
+                <h3 style="color: #10b981; font-size: 2rem; margin: 0">{{ attempt.correct_answers }}</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Correct</p>
+            </div>
+            <div>
+                <h3 style="color: #ef4444; font-size: 2rem; margin: 0">{{ attempt.wrong_answers }}</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Wrong</p>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1rem;">
+            <a href="{% url 'game:play' attempt.pdf.id %}" class="btn btn-accent" style="flex: 1 1 150px;">🔁 Re-test</a>
+            <button class="btn btn-primary" id="toggle-review-btn" style="flex: 1 1 150px; background: #3b82f6; border: none;">📋 Review Test</button>
+            <a href="{% url 'quiz:upload' %}" class="btn btn-outline" style="flex: 1 1 150px;">📄 New Document</a>
+        </div>
+    </div>
+    
+    <div id="review-section" style="display: none; margin-top: 3rem; text-align: left; max-width: 800px; margin-left: auto; margin-right: auto;">
+        <h3 style="color: var(--primary-color); margin-bottom: 2rem; text-align: center;">Test Review Analysis</h3>
+        {% if attempt.attempt_log %}
+            {% for log in attempt.attempt_log %}
+            <div class="card" style="margin-bottom: 1.5rem; padding: 1.5rem; background: rgba(0,0,0,0.2);">
+                <h4 style="margin-top: 0; display: flex; align-items: start; gap: 12px; font-size: 1.1rem; line-height: 1.4;">
+                    {% if log.status == 'Correct' %}
+                        <span class="status-icon status-correct">✅</span>
+                    {% elif log.status == 'Wrong' %}
+                        <span class="status-icon status-wrong">❌</span>
+                    {% else %}
+                        <span class="status-icon status-pending">⏳</span>
+                    {% endif %}
+                    {{ log.question }}
+                </h4>
+                <p style="font-size: 0.95rem;"><strong>Your Answer:</strong> <span class="{% if log.status == 'Correct' %}status-correct{% else %}status-wrong{% endif %}">{{ log.selected }}</span></p>
+                <p style="font-size: 0.95rem;"><strong>Correct Answer:</strong> <span class="status-correct">{{ log.correct }}</span></p>
+                <div class="explanation-box">
+                    <strong>Explanation:</strong> {{ log.explanation }}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p style="color: var(--text-muted); text-align: center;">No review data available for this attempt.</p>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    document.getElementById('toggle-review-btn').addEventListener('click', function() {
+        const reviewSection = document.getElementById('review-section');
+        if (reviewSection.style.display === 'none') {
+            reviewSection.style.display = 'block';
+            this.textContent = 'Hide Review Section';
+            window.scrollTo({
+                top: reviewSection.offsetTop - 100,
+                behavior: 'smooth'
+            });
+        } else {
+            reviewSection.style.display = 'none';
+            this.textContent = '📋 Review Test';
+        }
+    });
+</script>
+{% endblock %}
