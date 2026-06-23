@@ -1,0 +1,406 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0b1a13">
+    <meta name="description" content="Convert your PDF notes into an engaging falling-answer quiz game powered by AI.">
+    <title>{% block title %}QuizFall{% endblock %}</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="{% static 'icons/icon-192x192.png' %}">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <nav id="main-nav" style="justify-content: flex-end;">
+        <div class="auth-links">
+            {% if user.is_authenticated %}
+                <div class="profile-dropdown">
+                    <button class="profile-trigger" id="profileTrigger">
+                        <span class="nav-user">👤 <span class="user-text">{{ user.username }}</span></span>
+                    </button>
+                    <div class="dropdown-content" id="profileDropdown">
+                        <a href="/ ">🏠 Home</a>
+                        <a href="{% url 'game:dashboard' %}">📊 Dashboard</a>
+                        <a href="{% url 'quiz:upload' %}">⬆️ Upload PDF</a>
+                        <div class="dropdown-speed-container game-only" style="display: none;">
+                            <label>Speed: <span id="nav-speed-val" style="color: var(--accent-color);">1.00x</span></label>
+                            <input type="range" id="nav-speed-slider" min="0.005" max="2.0" step="0.005" value="1.0" style="width: 100%; accent-color: var(--primary-color);">
+                        </div>
+                        <a href="#" class="toggle-fs-btn">📺 Toggle Fullscreen</a>
+                        <a href="#" class="install-app-btn" style="display: none; color: #10b981;">📲 Install App</a>
+                        <a href="{% url 'quiz:upload' %}" class="game-only" style="display: none; color: #fbbf24;">⏹️ Exit Game</a>
+                        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 0;">
+                        <a href="{% url 'quiz:logout' %}" style="color: #ef4444;">🚪 Logout</a>
+                    </div>
+                </div>
+            {% else %}
+                <div class="profile-dropdown">
+                    <button class="profile-trigger" id="profileTrigger">
+                        <span class="nav-user">👤 <span class="user-text">Guest</span></span>
+                    </button>
+                    <div class="dropdown-content" id="profileDropdown">
+                        <div class="dropdown-header">
+                            <strong>Welcome!</strong>
+                            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: none; letter-spacing: normal;">Sign in to save progress</span>
+                        </div>
+                        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 0;">
+                        <a href="/">🏠 Home</a>
+                        <a href="{% url 'quiz:login' %}">🔑 Login</a>
+                        <a href="{% url 'quiz:register' %}">📝 Register</a>
+                        <div class="dropdown-speed-container game-only" style="display: none;">
+                            <label>Speed: <span id="nav-guest-speed-val" style="color: var(--accent-color);">1.00x</span></label>
+                            <input type="range" id="nav-guest-speed-slider" min="0.005" max="2.0" step="0.005" value="1.0" style="width: 100%; accent-color: var(--primary-color);">
+                        </div>
+                        <a href="#" class="toggle-fs-btn">📺 Toggle Fullscreen</a>
+                        <a href="#" class="install-app-btn" style="display: none; color: #10b981;">📲 Install App</a>
+                        <a href="{% url 'quiz:upload' %}" class="game-only" style="display: none; color: #fbbf24;">⏹️ Exit Game</a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </nav>
+    <script>
+        // Global initialization of event listeners (registered exactly once)
+        if (!window.qfInitialized) {
+            window.qfInitialized = true;
+
+            // Profile dropdown click logic using event delegation
+            document.addEventListener('click', function(e) {
+                const trigger = e.target.closest('#profileTrigger');
+                const dropdown = document.getElementById('profileDropdown');
+                
+                if (trigger && dropdown) {
+                    e.stopPropagation();
+                    dropdown.classList.toggle('show');
+                } else if (dropdown) {
+                    if (!dropdown.contains(e.target) && (!trigger || !trigger.contains(e.target))) {
+                        dropdown.classList.remove('show');
+                    }
+                }
+            });
+
+            // Fullscreen Toggle buttons click logic using event delegation
+            document.addEventListener('click', function(e) {
+                const btn = e.target.closest('.toggle-fs-btn');
+                if (btn) {
+                    e.preventDefault();
+                    if (!document.fullscreenElement) {
+                        document.documentElement.requestFullscreen().catch(() => {});
+                    } else {
+                        document.exitFullscreen().catch(() => {});
+                    }
+                }
+            });
+
+            // Listen to native fullscreen changes to keep localStorage flag in sync
+            document.addEventListener('fullscreenchange', () => {
+                if (document.fullscreenElement) {
+                    localStorage.setItem('qf_fullscreen', 'true');
+                } else {
+                    localStorage.setItem('qf_fullscreen', 'false');
+                }
+            });
+
+            // Auto-restore fullscreen preference on first interaction if opted-in
+            function restoreFullscreenPreference(e) {
+                // If they clicked the toggle button, let the toggle button's handler handle it
+                if (e && e.target && e.target.closest('.toggle-fs-btn')) {
+                    document.removeEventListener('click', restoreFullscreenPreference);
+                    document.removeEventListener('touchstart', restoreFullscreenPreference);
+                    return;
+                }
+                
+                if (localStorage.getItem('qf_fullscreen') === 'true' && !document.fullscreenElement) {
+                    if (document.documentElement.requestFullscreen) {
+                        document.documentElement.requestFullscreen().catch(() => {});
+                    }
+                }
+                // Clean up listeners
+                document.removeEventListener('click', restoreFullscreenPreference);
+                document.removeEventListener('touchstart', restoreFullscreenPreference);
+            }
+
+            if (localStorage.getItem('qf_fullscreen') === 'true' && !document.fullscreenElement) {
+                document.addEventListener('click', restoreFullscreenPreference);
+                document.addEventListener('touchstart', restoreFullscreenPreference);
+            }
+
+            // SPA Router: Intercept internal links to prevent fullscreen loss
+            document.addEventListener('click', function(e) {
+                const link = e.target.closest('a');
+                if (!link) return;
+
+                const href = link.getAttribute('href');
+                // Skip: external links, hash links, toggle-fs-btn, javascript:, POST forms, downloads, etc
+                if (!href || href === '#' || href.startsWith('http') || href.startsWith('javascript:')
+                    || link.classList.contains('toggle-fs-btn')
+                    || link.hasAttribute('download')
+                    || link.target === '_blank') {
+                    return;
+                }
+
+                // This is an internal link - handle via SPA navigation
+                e.preventDefault();
+                spaNavigate(href);
+            });
+        }
+
+        // Placeholders/compatibility helper for page transitions
+        function initPageScripts() {
+            // Dropdowns, fullscreen toggles, and SPA routing are handled globally via event delegation.
+        }
+
+        // SPA Navigation: fetch page via AJAX and swap content
+        async function spaNavigate(url) {
+            try {
+                const response = await fetch(url, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin'
+                });
+
+                if (response.redirected) {
+                    // If server redirected (e.g. after login), follow it via SPA
+                    url = response.url;
+                }
+
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                // Replace <main> content
+                const newMain = doc.querySelector('main');
+                const currentMain = document.querySelector('main');
+                if (newMain && currentMain) {
+                    currentMain.innerHTML = newMain.innerHTML;
+                }
+
+                // Replace <nav> content (in case auth state changed)
+                const newNav = doc.querySelector('#main-nav');
+                const currentNav = document.querySelector('#main-nav');
+                if (newNav && currentNav) {
+                    currentNav.innerHTML = newNav.innerHTML;
+                }
+
+                // Update page title
+                const newTitle = doc.querySelector('title');
+                if (newTitle) document.title = newTitle.textContent;
+
+                // Inject any page-specific <style> from extra_head
+                const existingPageStyle = document.getElementById('spa-page-style');
+                if (existingPageStyle) existingPageStyle.remove();
+                const newStyles = doc.querySelectorAll('head style');
+                if (newStyles.length > 0) {
+                    const styleEl = document.createElement('style');
+                    styleEl.id = 'spa-page-style';
+                    newStyles.forEach(s => styleEl.textContent += s.textContent);
+                    document.head.appendChild(styleEl);
+                }
+
+                // Load and execute page-specific scripts
+                // First, run inline scripts from main
+                const inlineScripts = currentMain.querySelectorAll('script');
+                inlineScripts.forEach(s => {
+                    const ns = document.createElement('script');
+                    ns.textContent = s.textContent;
+                    s.parentNode.replaceChild(ns, s);
+                });
+
+                // Then, run scripts from extra_scripts block (e.g. game.js)
+                const newExtraScripts = doc.querySelectorAll('main ~ script[src], body > script[src]');
+                newExtraScripts.forEach(s => {
+                    const src = s.getAttribute('src');
+                    if (src && !document.querySelector(`script[src="${src}"]`)) {
+                        const ns = document.createElement('script');
+                        ns.src = src;
+                        document.body.appendChild(ns);
+                    }
+                });
+
+                // Update browser URL
+                history.pushState({}, '', url);
+
+                // Re-init page scripts (dropdown, fullscreen toggles)
+                initPageScripts();
+
+                // Scroll to top
+                window.scrollTo(0, 0);
+
+            } catch (err) {
+                // If SPA navigation fails, fall back to normal navigation
+                console.error('SPA navigation failed, falling back:', err);
+                window.location.href = url;
+            }
+        }
+
+        // Handle browser back/forward buttons
+        window.addEventListener('popstate', function() {
+            spaNavigate(window.location.href);
+        });
+    </script>
+
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <h2 style="color: var(--accent-color);">Processing Note...</h2>
+        <p style="color: var(--text-muted);">AI is reading and generating questions. Please wait.</p>
+    </div>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block extra_scripts %}{% endblock %}
+
+    <script>
+        // Register service worker for PWA install support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('SW registered:', reg.scope))
+                    .catch(err => console.log('SW registration failed:', err));
+            });
+        }
+
+        // PWA Install prompt handling
+        window.deferredInstallPrompt = null;
+        let nativePromptAvailable = false;
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            window.deferredInstallPrompt = e;
+            nativePromptAvailable = true;
+            // Show all install buttons in dropdowns
+            document.querySelectorAll('.install-app-btn').forEach(btn => {
+                btn.style.display = '';
+            });
+        });
+
+        // Fallback: On mobile over HTTP (IP access), show install button with manual instructions
+        function isMobileDevice() {
+            return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+        }
+        function isSecureContext() {
+            return window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        }
+
+        // After a short delay, if native prompt hasn't fired and we're on mobile HTTP, show fallback
+        setTimeout(() => {
+            if (!nativePromptAvailable && isMobileDevice() && !window.matchMedia('(display-mode: standalone)').matches) {
+                document.querySelectorAll('.install-app-btn').forEach(btn => {
+                    btn.style.display = '';
+                    btn.dataset.fallback = 'true';
+                });
+            }
+        }, 2000);
+
+        // Handle install button clicks via event delegation
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('.install-app-btn');
+            if (!btn) return;
+            e.preventDefault();
+
+            // Native install prompt available (HTTPS / localhost)
+            if (window.deferredInstallPrompt) {
+                window.deferredInstallPrompt.prompt();
+                window.deferredInstallPrompt.userChoice.then(choice => {
+                    if (choice.outcome === 'accepted') {
+                        document.querySelectorAll('.install-app-btn').forEach(b => {
+                            b.style.display = 'none';
+                        });
+                    }
+                    window.deferredInstallPrompt = null;
+                });
+                return;
+            }
+
+            // Fallback: show manual "Add to Home Screen" instructions
+            showInstallGuide();
+        });
+
+        function showInstallGuide() {
+            // Don't create multiple modals
+            if (document.getElementById('install-guide-modal')) return;
+
+            const isAndroid = /Android/i.test(navigator.userAgent);
+            const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+            let steps = '';
+            if (isAndroid) {
+                steps = `
+                    <div style="text-align: left; margin: 1.5rem 0;">
+                        <p style="margin: 0.8rem 0; font-size: 0.95rem;">
+                            <span style="color: var(--accent-color); font-weight: 700;">Step 1:</span> Tap the <strong>⋮ menu</strong> (three dots) at the top-right of Chrome
+                        </p>
+                        <p style="margin: 0.8rem 0; font-size: 0.95rem;">
+                            <span style="color: var(--accent-color); font-weight: 700;">Step 2:</span> Tap <strong>"Add to Home screen"</strong> or <strong>"Install app"</strong>
+                        </p>
+                        <p style="margin: 0.8rem 0; font-size: 0.95rem;">
+                            <span style="color: var(--accent-color); font-weight: 700;">Step 3:</span> Tap <strong>"Add"</strong> to confirm
+                        </p>
+                    </div>
+                `;
+            } else if (isIOS) {
+                steps = `
+                    <div style="text-align: left; margin: 1.5rem 0;">
+                        <p style="margin: 0.8rem 0; font-size: 0.95rem;">
+                            <span style="color: var(--accent-color); font-weight: 700;">Step 1:</span> Tap the <strong>Share</strong> button (square with arrow) at the bottom of Safari
+                        </p>
+                        <p style="margin: 0.8rem 0; font-size: 0.95rem;">
+                            <span style="color: var(--accent-color); font-weight: 700;">Step 2:</span> Scroll down and tap <strong>"Add to Home Screen"</strong>
+                        </p>
+                        <p style="margin: 0.8rem 0; font-size: 0.95rem;">
+                            <span style="color: var(--accent-color); font-weight: 700;">Step 3:</span> Tap <strong>"Add"</strong> to confirm
+                        </p>
+                    </div>
+                `;
+            } else {
+                steps = `
+                    <div style="text-align: left; margin: 1.5rem 0;">
+                        <p style="margin: 0.8rem 0; font-size: 0.95rem;">
+                            Open your browser menu and look for <strong>"Install app"</strong> or <strong>"Add to Home Screen"</strong>.
+                        </p>
+                    </div>
+                `;
+            }
+
+            const modal = document.createElement('div');
+            modal.id = 'install-guide-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(11,26,19,0.9);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;z-index:9999;padding:1.5rem;animation:fadeIn 0.3s ease-out;';
+            modal.innerHTML = `
+                <div style="background:var(--surface-color);border:2px solid var(--border-color);border-radius:20px;padding:2rem;max-width:400px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,0.9);text-align:center;">
+                    <h3 style="color:var(--primary-color);font-size:1.4rem;margin:0 0 0.5rem 0;">📲 Install QuizFall</h3>
+                    <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:0.5rem;">
+                        Install this app on your device for quick access!
+                    </p>
+                    ${steps}
+                    <button id="close-install-guide" class="btn btn-primary" style="width:100%;padding:0.8rem;border-radius:12px;font-weight:700;margin-top:0.5rem;">Got it!</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            document.getElementById('close-install-guide').addEventListener('click', () => {
+                modal.remove();
+            });
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
+        }
+
+        // Hide install button if app is already installed
+        window.addEventListener('appinstalled', () => {
+            window.deferredInstallPrompt = null;
+            document.querySelectorAll('.install-app-btn').forEach(btn => {
+                btn.style.display = 'none';
+            });
+        });
+
+        // Also hide if running in standalone mode (already installed)
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            document.querySelectorAll('.install-app-btn').forEach(btn => {
+                btn.style.display = 'none';
+            });
+        }
+    </script>
+</body>
+</html>

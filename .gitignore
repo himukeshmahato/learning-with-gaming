@@ -1,0 +1,9 @@
+.env
+*.env
+serviceAccount.json
+media/uploaded_pdfs/
+node_modules/
+__pycache__/
+tmp/
+db.sqlite3
+media/

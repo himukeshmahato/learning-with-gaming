@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Register - QuizFall{% endblock %}
+
+{% block content %}
+<div class="auth-page fade-in">
+    <div class="card auth-card">
+        <div class="brand" style="text-align: center; margin-bottom: 2.5rem;">
+            <h1 style="font-weight: 800; letter-spacing: -1px;">Quiz<span>Fall</span></h1>
+            <p style="color: var(--text-muted); margin-top: 0.5rem; font-size: 0.95rem;">Create your account to start learning</p>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                <ul class="field-errors" style="list-style: none; padding: 0; margin: 0.5rem 0 0; color: #ef4444; font-size: 0.8rem;">
+                    {% for error in field.errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem; font-size: 1.1rem; padding: 0.9rem;">🚀 Create Account</button>
+        </form>
+
+        <div class="auth-footer" style="text-align: center; margin-top: 2rem; color: var(--text-muted); font-size: 0.9rem;">
+            Already have an account? <a href="{% url 'quiz:login' %}" style="color: var(--accent-color); text-decoration: none; font-weight: 600;">Sign in</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

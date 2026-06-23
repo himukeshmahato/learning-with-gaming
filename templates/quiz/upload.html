@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container fade-in">
+    <header style="margin-bottom: 2.5rem;">
+        <h2>Convert your PDF into a <span style="color: var(--accent-color);">Game</span></h2>
+        <p style="color: var(--text-muted);">Upload a study note, and our AI will generate falling-answer questions.</p>
+    </header>
+
+    <div class="card" style="max-width: 600px; margin: 0 auto;">
+        {% if error %}
+        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem; font-size: 0.9rem; display: flex; align-items: center; gap: 10px;">
+            <span>⚠️</span> <strong>Error:</strong> {{ error }}
+        </div>
+        {% endif %}
+        <form method="post" enctype="multipart/form-data" onsubmit="showLoading()">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="{{ form.title.id_for_label }}">Document Title</label>
+                {{ form.title }}
+            </div>
+            <div class="form-group">
+                <label for="{{ form.file.id_for_label }}">Select PDF Note</label>
+                {{ form.file }}
+            </div>
+
+            <!-- LLM Model Selector -->
+            <div class="form-group" style="margin-bottom: 2rem;">
+                <label for="llm_model" style="display: flex; align-items: center; gap: 8px;">
+                    <span>🤖</span> AI Model
+                </label>
+                <select name="llm_model" id="llm_model" class="form-input" style="cursor: pointer; appearance: none; -webkit-appearance: none; background-image: url('data:image/svg+xml;utf8,<svg fill=\'%2394a3b8\' viewBox=\'0 0 20 20\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z\'/></svg>'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px; padding-right: 36px;">
+                    <option value="auto">🔄 Auto (Best Available)</option>
+                    {% if available_models %}
+                        <optgroup label="Gemini Models">
+                        {% for model in available_models %}
+                            {% if model.provider == "gemini" %}
+                            <option value="{{ model.id }}">{{ model.name }}</option>
+                            {% endif %}
+                        {% endfor %}
+                        </optgroup>
+                        <optgroup label="Groq Models">
+                        {% for model in available_models %}
+                            {% if model.provider == "groq" %}
+                            <option value="{{ model.id }}">{{ model.name }}</option>
+                            {% endif %}
+                        {% endfor %}
+                        </optgroup>
+                    {% endif %}
+                </select>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 6px; font-style: italic;">
+                    If the selected model fails, it will auto-switch to the next available model.
+                </p>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1rem; font-size: 1.1rem;">Generate Options & Play</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function showLoading() {
+        document.getElementById('loading-overlay').style.display = 'flex';
+    }
+</script>
+{% endblock %}
