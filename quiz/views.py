@@ -116,7 +116,7 @@ def upload_pdf(request):
                 request.session['ai_message'] = ai_message
 
             # Redirect immediately if at least some questions are likely being created
-            return redirect('quiz:upload')
+            return redirect('game:play', pdf_id=pdf_doc.id)
     else:
         form = PDFDocumentForm()
     

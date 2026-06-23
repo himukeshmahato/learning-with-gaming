@@ -27,7 +27,7 @@ urlpatterns = [
     path('', lambda request: redirect('quiz:upload')),
     path('admin/', admin.site.urls),
     path('quiz/', include('quiz.urls')),
-    
+    path('game/', include('game.urls')),
     path('manifest.json', TemplateView.as_view(template_name='manifest.json', content_type='application/json'), name='manifest'),
     path('sw.js', TemplateView.as_view(template_name='sw.js', content_type='application/javascript'), name='sw'),
 ]

@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block extra_head %}
+<!-- Load Phaser.js -->
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+<style>
+    /* Game canvas alignment */
+    #game-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 1.5rem auto;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+        border: 2px solid var(--border-color);
+        border-radius: 16px;
+        overflow: hidden;
+        width: 100%;
+        max-width: 1200px;
+        aspect-ratio: 9 / 8.5; /* Matches Phaser's 900x850 */
+        background: #000;
+        /* Allow it to take up more vertical space for the "long" view */
+        max-height: calc(100vh - 180px);
+    }
+
+    @media (max-width: 768px) {
+        #game-container {
+            border-radius: 0;
+            border: none;
+            margin: 0;
+            max-width: 100vw;
+            aspect-ratio: 3 / 4;
+            max-height: none;
+        }
+    }
+
+    .game-lobby-overlay {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(11, 26, 19, 0.85);
+        backdrop-filter: blur(12px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        padding: 1.5rem;
+    }
+
+    .game-config-card {
+        background: var(--surface-color);
+        border: 2px solid var(--border-color);
+        border-radius: 20px;
+        padding: 2.5rem;
+        width: 100%;
+        max-width: 550px;
+        box-shadow: 0 25px 60px rgba(0,0,0,0.9);
+        animation: fadeIn 0.5s ease-out;
+        text-align: center;
+    }
+
+    .option-btn {
+        flex: 1 1 80px;
+        padding: 0.6rem 0.5rem !important;
+        font-size: 0.85rem !important;
+        opacity: 0.6;
+        transition: all 0.2s;
+    }
+
+    .option-btn.active {
+        opacity: 1;
+        background: var(--accent-color) !important;
+        color: #000 !important;
+        transform: scale(1.05);
+        border-color: var(--accent-color) !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container fade-in">
+    <div class="mission-header">
+        <h2 style="margin-bottom: 2rem; font-size: clamp(1.2rem, 4vw, 1.8rem);">Mission Object: <span style="color: var(--accent-color);">{{ pdf_title }}</span></h2>
+    </div>
+
+    {% if ai_message %}
+    <div id="ai-status-banner" style="max-width: 550px; margin: 0 auto 1rem; padding: 0.8rem 1rem; border-radius: 12px; font-size: 0.85rem; display: flex; align-items: center; gap: 10px; animation: fadeIn 0.5s ease-out;
+        {% if '⚠️' in ai_message %}
+            background: rgba(251, 191, 36, 0.1); border: 1px solid #fbbf24; color: #fbbf24;
+        {% elif '❌' in ai_message %}
+            background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444;
+        {% else %}
+            background: rgba(16, 185, 129, 0.1); border: 1px solid #10b981; color: #10b981;
+        {% endif %}
+    ">
+        <span style="flex: 1;">{{ ai_message }}</span>
+        <button onclick="this.parentElement.remove()" style="background: none; border: none; color: inherit; cursor: pointer; font-size: 1.2rem; padding: 0; line-height: 1;">✕</button>
+    </div>
+    <script>setTimeout(() => { const b = document.getElementById('ai-status-banner'); if (b) b.style.display = 'none'; }, 8000);</script>
+    {% endif %}
+    
+    <!-- Game Lobby / Pre-start Screen -->
+    <div id="game-lobby" class="game-lobby-overlay">
+        <div class="game-config-card">
+            <h3 style="color: var(--primary-color); font-size: 1.8rem; margin-top:0; margin-bottom: 0.5rem;">Ready for Launch?</h3>
+            <p style="color: var(--text-muted); margin-bottom: 2.5rem;">Configure your training session before starting.</p>
+            
+            <div style="margin: 2rem 0; text-align: left;">
+                <label style="color: var(--text-muted); font-weight: bold; display: block; margin-bottom: 0.8rem; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.05em;">Question Count:</label>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button type="button" class="btn option-btn btn-outline" data-count="10">10 MCQs</button>
+                    <button type="button" class="btn option-btn btn-outline" data-count="20">20 MCQs</button>
+                    <button type="button" class="btn option-btn btn-outline" data-count="30">30 MCQs</button>
+                    <button type="button" class="btn option-btn btn-outline" data-count="50">50 MCQs</button>
+                </div>
+            </div>
+
+            <div style="margin: 2rem 0; text-align: left;">
+                <label style="color: var(--text-muted); font-weight: bold; display: block; margin-bottom: 0.8rem; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.05em;">Lives (Attempt Limit):</label>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button type="button" class="btn life-btn btn-outline" data-lives="3">3 ❤️</button>
+                    <button type="button" class="btn life-btn btn-outline" data-lives="5">5 ❤️</button>
+                    <button type="button" class="btn life-btn btn-outline" data-lives="7">7 ❤️</button>
+                </div>
+            </div>
+
+            <div style="margin: 2rem 0; text-align: left;">
+                <label style="color: var(--text-muted); font-weight: bold; display: block; margin-bottom: 1rem; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.05em;">Game Speed Multiplier: <span id="speed-val-display" style="color: var(--accent-color); margin-left: 10px;">1.0x</span></label>
+                <div style="display: flex; gap: 1rem; align-items: center; color: var(--text-muted); font-weight: 600;">
+                    <span style="font-size: 0.8rem; color: #10b981;">Snails Pace</span>
+                    <input type="range" id="speed-slider" min="0.005" max="2.0" step="0.005" value="1.0" style="flex: 1; accent-color: var(--primary-color); cursor: pointer;">
+                    <span style="font-size: 0.8rem; color: #ef4444;">Lightning</span>
+                </div>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 5px; text-align: center;">Set below 0.1x for maximum reading time.</p>
+            </div>
+
+            <p style="font-size:0.75rem; color: #6b8c72; margin-bottom: 2rem; font-style: italic;">Note: If the PDF has fewer questions than selected, all available will be used.</p>
+
+            <button id="start-game-btn" class="btn btn-primary" style="width: 100%; font-size: 1.1rem; padding: 1.1rem; border-radius: 12px; font-weight: 800;">🚀 Initiate Game</button>
+        </div>
+    </div>
+
+    <!-- The physical container where Phaser will render -->
+    <div id="game-container" data-pdfid="{{ pdf_id }}" style="filter: blur(15px); transition: filter 0.8s ease;">
+        <!-- Phaser game injects here -->
+    </div>
+
+    <!-- Live Speed Control (Floating) -->
+    <div class="speed-control-float">
+        <label>Game Speed: <span id="live-speed-val" style="color: var(--accent-color);">1.00x</span></label>
+        <div class="speed-row">
+            <span style="font-size: 0.7rem;">🐌</span>
+            <input type="range" id="live-speed-slider" min="0.005" max="2.0" step="0.005" value="1.0" style="flex: 1; accent-color: var(--primary-color); cursor: pointer;">
+            <span style="font-size: 0.7rem;">⚡</span>
+        </div>
+    </div>
+
+</div>
+
+<!-- Mobile Controls - OUTSIDE container so position:fixed works against viewport -->
+<div class="mobile-controls">
+    <div id="left-btn" class="control-btn">⬅️</div>
+    <div id="pause-btn" class="control-btn pause-btn">⏸️</div>
+    <div id="right-btn" class="control-btn">➡️</div>
+</div>
+
+<script>
+    let selectedCount = 10;
+    let selectedLives = 3;
+
+    const countBtns = document.querySelectorAll('.option-btn');
+    countBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            countBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedCount = parseInt(btn.dataset.count);
+        });
+    });
+    // Initialize default visually
+    if(countBtns.length) countBtns[0].click();
+
+    const lifeBtns = document.querySelectorAll('.life-btn');
+    lifeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            lifeBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedLives = parseInt(btn.dataset.lives);
+        });
+    });
+    // Initialize default lives visually
+    if(lifeBtns.length) lifeBtns[0].click();
+
+    const speedSlider = document.getElementById('speed-slider');
+    const speedDisplay = document.getElementById('speed-val-display');
+    const navSliders = [document.getElementById('nav-speed-slider'), document.getElementById('nav-guest-speed-slider')];
+    const navDisplays = [document.getElementById('nav-speed-val'), document.getElementById('nav-guest-speed-val')];
+
+    function updateAllSpeeds(val) {
+        const floatVal = parseFloat(val).toFixed(2);
+        window.GAME_SPEED = parseFloat(val);
+        
+        if(speedSlider) speedSlider.value = val;
+        if(speedDisplay) speedDisplay.textContent = floatVal + 'x';
+        
+        navSliders.forEach(s => { if(s) s.value = val; });
+        navDisplays.forEach(d => { if(d) d.textContent = floatVal + 'x'; });
+    }
+
+    if(speedSlider) {
+        speedSlider.addEventListener('input', (e) => updateAllSpeeds(e.target.value));
+    }
+
+    navSliders.forEach(s => {
+        if(s) s.addEventListener('input', (e) => updateAllSpeeds(e.target.value));
+    });
+
+    document.getElementById('start-game-btn').addEventListener('click', () => {
+        window.GAME_SPEED = speedSlider ? parseFloat(speedSlider.value) : 1.0;
+        window.QUESTION_COUNT = selectedCount;
+        window.GAME_LIVES = selectedLives;
+        
+        document.getElementById('game-lobby').style.display = 'none';
+        document.getElementById('game-container').style.filter = 'none';
+        document.body.classList.add('distraction-free');
+        
+        // Show the speed controller and menu items in the nav dropdown
+        document.querySelectorAll('.game-only').forEach(el => el.style.display = 'block');
+        
+        // Force Fullscreen
+        if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.log("Fullscreen request failed: ", err);
+            });
+        }
+
+        if(typeof initPhaserGame === 'function') {
+            initPhaserGame();
+        }
+    });
+</script>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'js/game.js' %}"></script>
+{% endblock %}
